@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "SVG Color Swapper",
+  "version": "1.0.0",
+  "description": "Easily detect, change, and export SVG colors from any webpage.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "index.html"
+  }
+}
