@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch, toRaw } from "vue";
 
 interface DetectedSVG {
   id: string;
   html: string;
   colors: string[];
+  originalColors: string[];
 }
 
 const detectedSVGs = ref<DetectedSVG[]>([]);
@@ -23,12 +24,14 @@ const scanForSVGs = async () => {
           if (!rgb || rgb === "none" || rgb === "transparent") return null;
           const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
           if (!match) return rgb.startsWith("#") ? rgb : null;
-          const r = parseInt(match[1]);
-          const g = parseInt(match[2]);
-          const b = parseInt(match[3]);
           return (
             "#" +
-            ((1 << 24) + (r << 16) + (g << 8) + b)
+            (
+              (1 << 24) +
+              (parseInt(match[1]) << 16) +
+              (parseInt(match[2]) << 8) +
+              parseInt(match[3])
+            )
               .toString(16)
               .slice(1)
               .toUpperCase()
@@ -37,21 +40,46 @@ const scanForSVGs = async () => {
 
         const svgs = Array.from(document.querySelectorAll("svg"));
         return svgs.map((svg, index) => {
-          const colorSet = new Set<string>();
+          const swapperId = `svg-raw-${index}-${Date.now()}`;
+          svg.setAttribute("data-swapper-id", swapperId);
 
-          svg.querySelectorAll("*").forEach((el) => {
+          const colorSet = new Set<string>();
+          const clone = svg.cloneNode(true) as SVGElement;
+
+          const originalElements = [
+            svg,
+            ...Array.from(svg.querySelectorAll("*")),
+          ];
+          const clonedElements = [
+            clone,
+            ...Array.from(clone.querySelectorAll("*")),
+          ];
+
+          originalElements.forEach((el, i) => {
             const style = window.getComputedStyle(el);
             const fill = rgbToHex(style.fill);
             const stroke = rgbToHex(style.stroke);
 
-            if (fill) colorSet.add(fill);
-            if (stroke) colorSet.add(stroke);
+            if (fill) {
+              el.setAttribute("data-orig-fill", fill);
+              clonedElements[i].setAttribute("data-orig-fill", fill);
+              clonedElements[i].setAttribute("fill", fill);
+              colorSet.add(fill);
+            }
+            if (stroke) {
+              el.setAttribute("data-orig-stroke", stroke);
+              clonedElements[i].setAttribute("data-orig-stroke", stroke);
+              clonedElements[i].setAttribute("stroke", stroke);
+              colorSet.add(stroke);
+            }
+            (clonedElements[i] as HTMLElement).style.cssText = "";
           });
 
           return {
-            id: `svg-${index}-${Math.random().toString(36).substr(2, 9)}`,
-            html: svg.outerHTML,
+            id: swapperId,
+            html: clone.outerHTML,
             colors: Array.from(colorSet),
+            originalColors: Array.from(colorSet),
           };
         });
       },
@@ -64,6 +92,64 @@ const scanForSVGs = async () => {
 const selectIcon = (svg: DetectedSVG) => {
   selectedSVG.value = svg;
 };
+
+watch(
+  () => selectedSVG.value?.colors,
+  async (newColors) => {
+    if (!selectedSVG.value || !newColors) return;
+
+    const currentId = selectedSVG.value.id;
+    const oldCols = toRaw(selectedSVG.value.originalColors);
+    const updatedCols = toRaw(newColors);
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(selectedSVG.value.html, "image/svg+xml");
+    const svgEl = doc.querySelector("svg");
+
+    if (svgEl) {
+      const elements = [svgEl, ...Array.from(svgEl.querySelectorAll("*"))];
+      elements.forEach((el) => {
+        const oFill = el.getAttribute("data-orig-fill");
+        const oStroke = el.getAttribute("data-orig-stroke");
+
+        oldCols.forEach((oldCol, idx) => {
+          if (oFill === oldCol) el.setAttribute("fill", updatedCols[idx]);
+          if (oStroke === oldCol) el.setAttribute("stroke", updatedCols[idx]);
+        });
+      });
+      selectedSVG.value.html = svgEl.outerHTML;
+    }
+
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (!tab?.id) return;
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      args: [currentId, oldCols, updatedCols],
+      func: (id: string, oldColors: string[], currentColors: string[]) => {
+        const svg = document.querySelector(`svg[data-swapper-id="${id}"]`);
+        if (!svg) return;
+
+        const elements = [svg, ...Array.from(svg.querySelectorAll("*"))];
+        elements.forEach((el) => {
+          const oFill = el.getAttribute("data-orig-fill");
+          const oStroke = el.getAttribute("data-orig-stroke");
+
+          oldColors.forEach((oldCol, idx) => {
+            if (oFill === oldCol)
+              (el as HTMLElement).style.fill = currentColors[idx];
+            if (oStroke === oldCol)
+              (el as HTMLElement).style.stroke = currentColors[idx];
+          });
+        });
+      },
+    });
+  },
+  { deep: true },
+);
 </script>
 
 <template>
