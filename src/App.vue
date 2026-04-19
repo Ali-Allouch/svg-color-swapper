@@ -23,16 +23,17 @@ const scanForSVGs = async () => {
       func: () => {
         const rgbToHex = (rgb: string) => {
           if (!rgb || rgb === "none" || rgb === "transparent") return null;
-          const match = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-          if (!match) return rgb.startsWith("#") ? rgb : null;
+          const match = rgb.match(
+            /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/,
+          );
+          if (!match) return rgb.startsWith("#") ? rgb.toUpperCase() : null;
+
+          const r = parseInt(match[1]);
+          const g = parseInt(match[2]);
+          const b = parseInt(match[3]);
           return (
             "#" +
-            (
-              (1 << 24) +
-              (parseInt(match[1]) << 16) +
-              (parseInt(match[2]) << 8) +
-              parseInt(match[3])
-            )
+            ((1 << 24) + (r << 16) + (g << 8) + b)
               .toString(16)
               .slice(1)
               .toUpperCase()
@@ -58,22 +59,38 @@ const scanForSVGs = async () => {
 
           originalElements.forEach((el, i) => {
             const style = window.getComputedStyle(el);
-            const fill = rgbToHex(style.fill);
-            const stroke = rgbToHex(style.stroke);
 
-            if (fill) {
+            const getActualColor = (prop: "fill" | "stroke") => {
+              let val = style[prop];
+              if (val === "currentColor") {
+                val = style.color;
+              }
+              return rgbToHex(val);
+            };
+
+            const fill = getActualColor("fill");
+            const stroke = getActualColor("stroke");
+
+            if (fill && fill !== "none" && fill !== "transparent") {
               el.setAttribute("data-orig-fill", fill);
               clonedElements[i].setAttribute("data-orig-fill", fill);
               clonedElements[i].setAttribute("fill", fill);
               colorSet.add(fill);
             }
-            if (stroke) {
+
+            if (stroke && stroke !== "none" && stroke !== "transparent") {
               el.setAttribute("data-orig-stroke", stroke);
               clonedElements[i].setAttribute("data-orig-stroke", stroke);
               clonedElements[i].setAttribute("stroke", stroke);
               colorSet.add(stroke);
             }
-            (clonedElements[i] as HTMLElement).style.cssText = "";
+
+            if (
+              clonedElements[i] instanceof HTMLElement ||
+              clonedElements[i] instanceof SVGElement
+            ) {
+              (clonedElements[i] as HTMLElement).style.cssText = "";
+            }
           });
 
           return {
