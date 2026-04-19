@@ -11,6 +11,7 @@ interface DetectedSVG {
 const detectedSVGs = ref<DetectedSVG[]>([]);
 const selectedSVG = ref<DetectedSVG | null>(null);
 const isScanning = ref(false);
+const isCopied = ref(false);
 
 const scanForSVGs = async () => {
   isScanning.value = true;
@@ -91,6 +92,57 @@ const scanForSVGs = async () => {
 
 const selectIcon = (svg: DetectedSVG) => {
   selectedSVG.value = svg;
+  isCopied.value = false;
+};
+
+const getCleanSVG = (html: string) => {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "image/svg+xml");
+  const svg = doc.querySelector("svg");
+  if (!svg) return html;
+
+  const cleanAttributes = (el: Element) => {
+    el.removeAttribute("data-swapper-id");
+    el.removeAttribute("data-orig-fill");
+    el.removeAttribute("data-orig-stroke");
+
+    const styleFill = (el as HTMLElement).style.fill;
+    const styleStroke = (el as HTMLElement).style.stroke;
+
+    if (styleFill) el.setAttribute("fill", styleFill);
+    if (styleStroke) el.setAttribute("stroke", styleStroke);
+    (el as HTMLElement).removeAttribute("style");
+  };
+
+  cleanAttributes(svg);
+  svg.querySelectorAll("*").forEach(cleanAttributes);
+
+  return svg.outerHTML;
+};
+
+const copyCode = async () => {
+  if (!selectedSVG.value) return;
+  const cleanCode = getCleanSVG(selectedSVG.value.html);
+  await navigator.clipboard.writeText(cleanCode);
+
+  isCopied.value = true;
+
+  setTimeout(() => {
+    isCopied.value = false;
+  }, 2000);
+};
+
+const downloadSVG = () => {
+  if (!selectedSVG.value) return;
+  const cleanCode = getCleanSVG(selectedSVG.value.html);
+  const blob = new Blob([cleanCode], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `swapped-icon-${Date.now()}.svg`;
+  link.click();
+  URL.revokeObjectURL(url);
 };
 
 watch(
@@ -162,12 +214,12 @@ watch(
       <h1
         class="text-lg font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent"
       >
-        SVG Swapper
+        SVG Color Swapper
       </h1>
       <button
         @click="scanForSVGs"
         :disabled="isScanning"
-        class="text-xs font-semibold px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-md transition-all active:scale-95 disabled:opacity-50"
+        class="text-xs font-semibold px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
       >
         {{ isScanning ? "Searching..." : "Scan Page" }}
       </button>
@@ -233,6 +285,43 @@ watch(
           />
           <span class="text-[9px] font-mono text-slate-400">{{ color }}</span>
         </div>
+      </div>
+
+      <div class="flex gap-2 mt-6">
+        <button
+          @click="copyCode"
+          :class="[
+            'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all border active:scale-95 cursor-pointer',
+            isCopied
+              ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+              : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700',
+          ]"
+        >
+          <span v-if="isCopied" class="flex items-center gap-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Copied!
+          </span>
+          <span v-else>Copy Code</span>
+        </button>
+
+        <button
+          @click="downloadSVG"
+          class="flex-1 flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-blue-500/20 active:scale-95 cursor-pointer"
+        >
+          <span>Download SVG</span>
+        </button>
       </div>
     </footer>
   </div>
