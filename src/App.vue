@@ -116,23 +116,35 @@ const getCleanSVG = (html: string) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "image/svg+xml");
   const svg = doc.querySelector("svg");
+
   if (!svg) return html;
 
+  if (!svg.getAttribute("xmlns")) {
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  }
+
   const cleanAttributes = (el: Element) => {
+    if (!el) return;
+
     el.removeAttribute("data-swapper-id");
     el.removeAttribute("data-orig-fill");
     el.removeAttribute("data-orig-stroke");
 
-    const styleFill = (el as HTMLElement).style.fill;
-    const styleStroke = (el as HTMLElement).style.stroke;
+    const htmlEl = el as HTMLElement;
+    if (htmlEl.style) {
+      const styleFill = htmlEl.style.fill;
+      const styleStroke = htmlEl.style.stroke;
 
-    if (styleFill) el.setAttribute("fill", styleFill);
-    if (styleStroke) el.setAttribute("stroke", styleStroke);
-    (el as HTMLElement).removeAttribute("style");
+      if (styleFill && styleFill !== "") el.setAttribute("fill", styleFill);
+      if (styleStroke && styleStroke !== "")
+        el.setAttribute("stroke", styleStroke);
+
+      el.removeAttribute("style");
+    }
   };
 
   cleanAttributes(svg);
-  svg.querySelectorAll("*").forEach(cleanAttributes);
+  svg.querySelectorAll("*").forEach((child) => cleanAttributes(child));
 
   return svg.outerHTML;
 };
@@ -182,8 +194,16 @@ watch(
         const oStroke = el.getAttribute("data-orig-stroke");
 
         oldCols.forEach((oldCol, idx) => {
-          if (oFill === oldCol) el.setAttribute("fill", updatedCols[idx]);
-          if (oStroke === oldCol) el.setAttribute("stroke", updatedCols[idx]);
+          const isMatchFill = oFill?.toLowerCase() === oldCol?.toLowerCase();
+          const isMatchStroke =
+            oStroke?.toLowerCase() === oldCol?.toLowerCase();
+
+          if (isMatchFill && updatedCols[idx]) {
+            el.setAttribute("fill", updatedCols[idx]);
+          }
+          if (isMatchStroke && updatedCols[idx]) {
+            el.setAttribute("stroke", updatedCols[idx]);
+          }
         });
       });
       selectedSVG.value.html = svgEl.outerHTML;
@@ -208,10 +228,26 @@ watch(
           const oStroke = el.getAttribute("data-orig-stroke");
 
           oldColors.forEach((oldCol, idx) => {
-            if (oFill === oldCol)
-              (el as HTMLElement).style.fill = currentColors[idx];
-            if (oStroke === oldCol)
-              (el as HTMLElement).style.stroke = currentColors[idx];
+            const isMatchFill = oFill?.toLowerCase() === oldCol?.toLowerCase();
+            const isMatchStroke =
+              oStroke?.toLowerCase() === oldCol?.toLowerCase();
+
+            if (isMatchFill && currentColors[idx]) {
+              el.setAttribute("fill", currentColors[idx]);
+              (el as HTMLElement).style.setProperty(
+                "fill",
+                currentColors[idx],
+                "important",
+              );
+            }
+            if (isMatchStroke && currentColors[idx]) {
+              el.setAttribute("stroke", currentColors[idx]);
+              (el as HTMLElement).style.setProperty(
+                "stroke",
+                currentColors[idx],
+                "important",
+              );
+            }
           });
         });
       },
