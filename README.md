@@ -7,6 +7,8 @@
 ![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss)
 
+## 📖 Overview
+
 **SVG Color Swapper** is a professional Chrome Extension designed for developers and designers. It allows you to instantly detect, live-edit, and export SVG icons from any webpage with a few clicks.
 
 ---
@@ -33,6 +35,8 @@
 
 ## 🚀 Installation for Developers
 
+To set up and run SVG Color Swapper locally, follow these steps:
+
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/Ali-Allouch/svg-color-swapper.git
@@ -47,11 +51,16 @@
    ```bash
    npm run build
    ```
+    This will generate a `dist` folder in your project directory.
 
 4.  **Load into Chrome as an unpacked extension**:
     -  Open Chrome and navigate to `chrome://extensions`.
     -  Enable "Developer mode" by toggling the switch in the top right corner.
     -  Click on "Load unpacked" and select the `dist` folder generated in the previous step.
+   
+      Your SVG Color Swapper extension should now appear in your Chrome extensions list and toolbar.
+
+---
 
 ## 📂 Project Structure
 
@@ -75,6 +84,8 @@ src/
 ├── main.ts
 └── style.css
 ```
+
+---
 
 ## 📄 Privacy Policy
 
