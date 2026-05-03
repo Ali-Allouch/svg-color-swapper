@@ -75,6 +75,11 @@ const scanForSVGs = async () => {
               el.setAttribute("data-orig-fill", fill);
               clonedElements[i].setAttribute("data-orig-fill", fill);
               clonedElements[i].setAttribute("fill", fill);
+              (clonedElements[i] as SVGElement).style.setProperty(
+                "fill",
+                fill,
+                "important",
+              );
               colorSet.add(fill);
             }
 
@@ -82,14 +87,12 @@ const scanForSVGs = async () => {
               el.setAttribute("data-orig-stroke", stroke);
               clonedElements[i].setAttribute("data-orig-stroke", stroke);
               clonedElements[i].setAttribute("stroke", stroke);
+              (clonedElements[i] as SVGElement).style.setProperty(
+                "stroke",
+                stroke,
+                "important",
+              );
               colorSet.add(stroke);
-            }
-
-            if (
-              clonedElements[i] instanceof HTMLElement ||
-              clonedElements[i] instanceof SVGElement
-            ) {
-              (clonedElements[i] as HTMLElement).style.cssText = "";
             }
           });
 
@@ -119,6 +122,8 @@ const getCleanSVG = (html: string) => {
 
   if (!svg) return html;
 
+  svg.querySelectorAll("style").forEach((s) => s.remove());
+
   if (!svg.getAttribute("xmlns")) {
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   }
@@ -135,9 +140,8 @@ const getCleanSVG = (html: string) => {
       const styleFill = htmlEl.style.fill;
       const styleStroke = htmlEl.style.stroke;
 
-      if (styleFill && styleFill !== "") el.setAttribute("fill", styleFill);
-      if (styleStroke && styleStroke !== "")
-        el.setAttribute("stroke", styleStroke);
+      if (styleFill) el.setAttribute("fill", styleFill);
+      if (styleStroke) el.setAttribute("stroke", styleStroke);
 
       el.removeAttribute("style");
     }
@@ -200,9 +204,19 @@ watch(
 
           if (isMatchFill && updatedCols[idx]) {
             el.setAttribute("fill", updatedCols[idx]);
+            (el as SVGElement).style.setProperty(
+              "fill",
+              updatedCols[idx],
+              "important",
+            );
           }
           if (isMatchStroke && updatedCols[idx]) {
             el.setAttribute("stroke", updatedCols[idx]);
+            (el as SVGElement).style.setProperty(
+              "stroke",
+              updatedCols[idx],
+              "important",
+            );
           }
         });
       });
