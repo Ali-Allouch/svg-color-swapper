@@ -1,6 +1,6 @@
 # SVG Color Swapper 🎨
 
-![Version](https://img.shields.io/badge/version-1.0.2-blue)
+![Version](https://img.shields.io/badge/version-1.0.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3.x-4fc08d?logo=vue.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178c6?logo=typescript)

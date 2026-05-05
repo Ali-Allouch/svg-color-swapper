@@ -75,11 +75,6 @@ const scanForSVGs = async () => {
               el.setAttribute("data-orig-fill", fill);
               clonedElements[i].setAttribute("data-orig-fill", fill);
               clonedElements[i].setAttribute("fill", fill);
-              (clonedElements[i] as SVGElement).style.setProperty(
-                "fill",
-                fill,
-                "important",
-              );
               colorSet.add(fill);
             }
 
@@ -87,12 +82,14 @@ const scanForSVGs = async () => {
               el.setAttribute("data-orig-stroke", stroke);
               clonedElements[i].setAttribute("data-orig-stroke", stroke);
               clonedElements[i].setAttribute("stroke", stroke);
-              (clonedElements[i] as SVGElement).style.setProperty(
-                "stroke",
-                stroke,
-                "important",
-              );
               colorSet.add(stroke);
+            }
+
+            if (
+              clonedElements[i] instanceof HTMLElement ||
+              clonedElements[i] instanceof SVGElement
+            ) {
+              (clonedElements[i] as HTMLElement).style.cssText = "";
             }
           });
 
@@ -122,8 +119,6 @@ const getCleanSVG = (html: string) => {
 
   if (!svg) return html;
 
-  svg.querySelectorAll("style").forEach((s) => s.remove());
-
   if (!svg.getAttribute("xmlns")) {
     svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   }
@@ -140,8 +135,9 @@ const getCleanSVG = (html: string) => {
       const styleFill = htmlEl.style.fill;
       const styleStroke = htmlEl.style.stroke;
 
-      if (styleFill) el.setAttribute("fill", styleFill);
-      if (styleStroke) el.setAttribute("stroke", styleStroke);
+      if (styleFill && styleFill !== "") el.setAttribute("fill", styleFill);
+      if (styleStroke && styleStroke !== "")
+        el.setAttribute("stroke", styleStroke);
 
       el.removeAttribute("style");
     }
@@ -192,31 +188,34 @@ watch(
     const svgEl = doc.querySelector("svg");
 
     if (svgEl) {
+      svgEl.querySelectorAll("style").forEach((s) => s.remove());
+
       const elements = [svgEl, ...Array.from(svgEl.querySelectorAll("*"))];
       elements.forEach((el) => {
         const oFill = el.getAttribute("data-orig-fill");
         const oStroke = el.getAttribute("data-orig-stroke");
+        const htmlEl = el as HTMLElement;
 
         oldCols.forEach((oldCol, idx) => {
           const isMatchFill = oFill?.toLowerCase() === oldCol?.toLowerCase();
           const isMatchStroke =
             oStroke?.toLowerCase() === oldCol?.toLowerCase();
 
-          if (isMatchFill && updatedCols[idx]) {
-            el.setAttribute("fill", updatedCols[idx]);
-            (el as SVGElement).style.setProperty(
-              "fill",
-              updatedCols[idx],
-              "important",
-            );
-          }
-          if (isMatchStroke && updatedCols[idx]) {
-            el.setAttribute("stroke", updatedCols[idx]);
-            (el as SVGElement).style.setProperty(
-              "stroke",
-              updatedCols[idx],
-              "important",
-            );
+          if (updatedCols[idx]) {
+            if (isMatchFill) {
+              el.setAttribute("fill", updatedCols[idx]);
+              if (htmlEl.style)
+                htmlEl.style.setProperty("fill", updatedCols[idx], "important");
+            }
+            if (isMatchStroke) {
+              el.setAttribute("stroke", updatedCols[idx]);
+              if (htmlEl.style)
+                htmlEl.style.setProperty(
+                  "stroke",
+                  updatedCols[idx],
+                  "important",
+                );
+            }
           }
         });
       });
@@ -232,35 +231,30 @@ watch(
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       args: [currentId, oldCols, updatedCols],
-      func: (id: string, oldColors: string[], currentColors: string[]) => {
+      func: (id: string, oColors: string[], cColors: string[]) => {
         const svg = document.querySelector(`svg[data-swapper-id="${id}"]`);
         if (!svg) return;
+
+        svg.querySelectorAll("style").forEach((s) => s.remove());
 
         const elements = [svg, ...Array.from(svg.querySelectorAll("*"))];
         elements.forEach((el) => {
           const oFill = el.getAttribute("data-orig-fill");
           const oStroke = el.getAttribute("data-orig-stroke");
+          const htmlEl = el as HTMLElement;
 
-          oldColors.forEach((oldCol, idx) => {
-            const isMatchFill = oFill?.toLowerCase() === oldCol?.toLowerCase();
-            const isMatchStroke =
-              oStroke?.toLowerCase() === oldCol?.toLowerCase();
-
-            if (isMatchFill && currentColors[idx]) {
-              el.setAttribute("fill", currentColors[idx]);
-              (el as HTMLElement).style.setProperty(
-                "fill",
-                currentColors[idx],
-                "important",
-              );
-            }
-            if (isMatchStroke && currentColors[idx]) {
-              el.setAttribute("stroke", currentColors[idx]);
-              (el as HTMLElement).style.setProperty(
-                "stroke",
-                currentColors[idx],
-                "important",
-              );
+          oColors.forEach((oldC, idx) => {
+            if (cColors[idx]) {
+              if (oFill?.toLowerCase() === oldC?.toLowerCase()) {
+                el.setAttribute("fill", cColors[idx]);
+                if (htmlEl.style)
+                  htmlEl.style.setProperty("fill", cColors[idx], "important");
+              }
+              if (oStroke?.toLowerCase() === oldC?.toLowerCase()) {
+                el.setAttribute("stroke", cColors[idx]);
+                if (htmlEl.style)
+                  htmlEl.style.setProperty("stroke", cColors[idx], "important");
+              }
             }
           });
         });
